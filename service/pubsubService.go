@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
 	"log"
@@ -16,13 +17,12 @@ var mu sync.RWMutex
 
 func (a *RPC) CreateTopic(topicID string, replyTopic *dtos.TopicDto) error {
 	if topicID == "" {
-		log.Println("topicID empty")
-		return nil
+		return errors.New("TopicID empty")
 	}
 	mu.Lock()
 	defer mu.Unlock()
 	topic := data.Topic{TopicID: topicID, Subscriptions: make(map[string]*data.Subscription)}
-	data.TopicList[topicID] = topic
+	data.TopicList[topicID] = &topic
 	log.Println("Added topic:", topicID)
 	err := copier.Copy(replyTopic, &topic)
 	if err != nil {
@@ -34,8 +34,7 @@ func (a *RPC) CreateTopic(topicID string, replyTopic *dtos.TopicDto) error {
 
 func (a *RPC) DeleteTopic(topicID string, replyTopic *dtos.TopicDto) error {
 	if topicID == "" {
-		log.Println("topicID empty")
-		return nil
+		return errors.New("TopicID empty")
 	}
 	mu.Lock()
 	defer mu.Unlock()
@@ -56,9 +55,11 @@ func (a *RPC) DeleteTopic(topicID string, replyTopic *dtos.TopicDto) error {
 }
 
 func (a *RPC) AddSubscription(addsubDto dtos.AddSubDto, replyDto *dtos.AddSubDto) error {
+	if addsubDto.TopicID == "" {
+		return errors.New("TopicID empty")
+	}
 	if addsubDto.SubscriptionID == "" {
-		log.Println("SubscriptionID empty")
-		return nil
+		return errors.New("SubscriptionID empty")
 	}
 	mu.Lock()
 	defer mu.Unlock()
@@ -79,8 +80,7 @@ func (a *RPC) AddSubscription(addsubDto dtos.AddSubDto, replyDto *dtos.AddSubDto
 
 func (a *RPC) DeleteSubscription(subscriptionID string, replyDto *dtos.AddSubDto) error {
 	if subscriptionID == "" {
-		log.Println("SubscriptionID empty")
-		return nil
+		return errors.New("SubscriptionID empty")
 	}
 	mu.Lock()
 	defer mu.Unlock()
@@ -99,6 +99,9 @@ func (a *RPC) DeleteSubscription(subscriptionID string, replyDto *dtos.AddSubDto
 }
 
 func (a *RPC) Publish(publishdto dtos.PublishDto, replydto *dtos.PublishDto) error {
+	if publishdto.TopicID == "" {
+		return errors.New("TopicID empty")
+	}
 	var message data.Message
 	err := copier.Copy(&message, &publishdto.Message)
 	if err != nil {
@@ -125,6 +128,9 @@ func (a *RPC) Publish(publishdto dtos.PublishDto, replydto *dtos.PublishDto) err
 }
 
 func (a *RPC) Ack(ackDto dtos.AckDto, replyAckDto *dtos.AckDto) error {
+	if ackDto.SubscriptionID == "" {
+		return errors.New("SubscriptionID empty")
+	}
 	mu.RLock()
 	defer mu.RUnlock()
 	for _, topic := range data.TopicList {
@@ -147,6 +153,9 @@ func (a *RPC) Ack(ackDto dtos.AckDto, replyAckDto *dtos.AckDto) error {
 }
 
 func (a *RPC) GetNonProcessedMessage(subscriptionID string, replyMessage *dtos.MessageDto) error {
+	if subscriptionID == "" {
+		return errors.New("SubscriptionID empty")
+	}
 	mu.RLock()
 	defer mu.RUnlock()
 	for _, topic := range data.TopicList {
@@ -154,7 +163,7 @@ func (a *RPC) GetNonProcessedMessage(subscriptionID string, replyMessage *dtos.M
 			if sub.SubscriptionID == subscriptionID {
 				nonProcessedMessage := sub.GetNonProcessedMessage()
 				if nonProcessedMessage == nil {
-					return errors.New("no non-processed message found")
+					return errors.New(fmt.Sprint("No message found to be processed on subscriptionID", subscriptionID))
 				} else {
 					err := copier.Copy(replyMessage, nonProcessedMessage)
 					if err != nil {
@@ -166,5 +175,5 @@ func (a *RPC) GetNonProcessedMessage(subscriptionID string, replyMessage *dtos.M
 			}
 		}
 	}
-	return errors.New("no non-processed message found")
+	return errors.New(fmt.Sprint("subscription not found on subscriptionID", subscriptionID))
 }

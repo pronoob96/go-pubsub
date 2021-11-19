@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var TopicList = map[string]Topic{}
+var TopicList = map[string]*Topic{}
 
 type Topic struct {
 	TopicID       string

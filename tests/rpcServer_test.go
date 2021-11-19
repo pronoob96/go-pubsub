@@ -13,12 +13,12 @@ import (
 func subscriber(rpcClient *rpc.Client, subscriptionID string) {
 	callback := func(subscriptionID string, message dtos.MessageDto) {
 		log.Println("Started Working on message", message.MessageData, "on subscription", subscriptionID)
-		time.Sleep(time.Duration(rand.Int31n(5)+1) * time.Second)
+		time.Sleep(time.Duration(rand.Int31n(6)+1) * time.Second)
 		client.Ack(subscriptionID, message)
 	}
 	ch := make(chan bool)
 	go client.Subscribe(rpcClient, subscriptionID, callback, ch)
-	time.Sleep(10 * time.Second)
+	time.Sleep(14 * time.Second)
 	client.Unsubscribe(ch)
 }
 
@@ -32,22 +32,15 @@ func TestRPCServer(t *testing.T) {
 	if err != nil {
 		return
 	}
+	defer client.DeleteTopic(rpcClient, "topic1")
 	go client.AddSubscription(rpcClient, "topic1", "sub1")
-	if err != nil {
-		return
-	}
 	go client.AddSubscription(rpcClient, "topic1", "sub2")
-	if err != nil {
-		return
-	}
 	err = client.CreateTopic(rpcClient, "topic2")
 	if err != nil {
 		return
 	}
+	defer client.DeleteTopic(rpcClient, "topic2")
 	go client.AddSubscription(rpcClient, "topic2", "sub3")
-	if err != nil {
-		return
-	}
 
 	go subscriber(rpcClient, "sub1")
 	go subscriber(rpcClient, "sub2")
@@ -91,13 +84,4 @@ func TestRPCServer(t *testing.T) {
 	}
 
 	time.Sleep(20 * time.Second)
-
-	err = client.DeleteTopic(rpcClient, "topic1")
-	if err != nil {
-		return
-	}
-	err = client.DeleteTopic(rpcClient, "topic2")
-	if err != nil {
-		return
-	}
 }

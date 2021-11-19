@@ -18,7 +18,7 @@ func Subscribe(client *rpc.Client, subscriptionID string, subscriberFunc func(st
 			var replyMessage dtos.MessageDto
 			err := client.Call("RPC.GetNonProcessedMessage", subscriptionID, &replyMessage)
 			if err != nil {
-				log.Println("No message found to be processed on subscriptionID", subscriptionID)
+				log.Println(err)
 			} else {
 				subscriberFunc(subscriptionID, replyMessage)
 			}
