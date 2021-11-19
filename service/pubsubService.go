@@ -64,7 +64,7 @@ func (a *RPC) AddSubscription(addsubDto dtos.AddSubDto, replyDto *dtos.AddSubDto
 	mu.Lock()
 	defer mu.Unlock()
 	topic := data.TopicList[addsubDto.TopicID]
-	if topic.TopicID == "" {
+	if topic == nil {
 		log.Println("Topic not found")
 		return nil
 	}
@@ -112,7 +112,7 @@ func (a *RPC) Publish(publishdto dtos.PublishDto, replydto *dtos.PublishDto) err
 	mu.RLock()
 	defer mu.RUnlock()
 	topic := data.TopicList[publishdto.TopicID]
-	if topic.TopicID == "" {
+	if topic == nil {
 		return errors.New("TopicID not found")
 	}
 	for _, v := range data.TopicList[publishdto.TopicID].Subscriptions {

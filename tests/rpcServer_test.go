@@ -13,7 +13,7 @@ import (
 func subscriber(rpcClient *rpc.Client, subscriptionID string) {
 	callback := func(subscriptionID string, message dtos.MessageDto) {
 		log.Println("Started Working on message", message.MessageData, "on subscription", subscriptionID)
-		time.Sleep(time.Duration(rand.Int31n(6)+1) * time.Second)
+		time.Sleep(time.Duration(rand.Int31n(7)) * time.Second)
 		client.Ack(subscriptionID, message)
 	}
 	ch := make(chan bool)

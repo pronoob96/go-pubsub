@@ -22,10 +22,10 @@ type Subscription struct {
 }
 
 type Message struct {
-	MessageID   uuid.UUID
-	MessageData string
-	IsDone      bool
-	Time        time.Time
+	MessageID    uuid.UUID
+	MessageData  string
+	IsDone       bool
+	DeadlineTime time.Time
 }
 
 func (s *Subscription) AddMessageToSubscription(message Message) {
@@ -38,34 +38,31 @@ func (s *Subscription) AddMessageToSubscription(message Message) {
 func (s *Subscription) GetNonProcessedMessage() *Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	var replymsg *Message
 	for i, msg := range s.Messages {
 		if !msg.IsDone {
-			msg.Time = time.Now().Add(constants.ACK_DEADLINE * time.Millisecond)
+			msg.DeadlineTime = time.Now().Add(constants.ACK_DEADLINE * time.Millisecond)
 			s.Messages[i] = msg
-			replymsg = &s.Messages[i]
-			break
+			return &s.Messages[i]
 		}
 	}
-	return replymsg
+	return nil
 }
 
 func (s *Subscription) MarkWorkDone(subscriptionID string, messageID uuid.UUID) *Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	var replymsg *Message
 	for i, msg := range s.Messages {
 		if msg.MessageID == messageID {
-			if time.Now().After(msg.Time) {
-				log.Println("Acknowledgement Failed for message", msg.MessageData, "on subscriptionID", subscriptionID, "time:", time.Now().Sub(msg.Time), "late")
+			if time.Now().After(msg.DeadlineTime) {
+				log.Println("Acknowledgement Failed for message", msg.MessageData, "on subscriptionID", subscriptionID, "time:", time.Now().Sub(msg.DeadlineTime), "late")
 				return nil
 			} else {
 				msg.IsDone = true
 				s.Messages[i] = msg
-				log.Println("Acknowledged for message", msg.MessageData, "on subscriptionID", subscriptionID, "time:", msg.Time.Sub(time.Now()), "early")
-				return &msg
+				log.Println("Acknowledged for message", msg.MessageData, "on subscriptionID", subscriptionID, "time:", msg.DeadlineTime.Sub(time.Now()), "early")
+				return &s.Messages[i]
 			}
 		}
 	}
-	return replymsg
+	return nil
 }
