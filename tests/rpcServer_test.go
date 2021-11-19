@@ -32,11 +32,11 @@ func TestRPCServer(t *testing.T) {
 	if err != nil {
 		return
 	}
-	err = client.AddSubscription(rpcClient, "topic1", "sub1")
+	go client.AddSubscription(rpcClient, "topic1", "sub1")
 	if err != nil {
 		return
 	}
-	err = client.AddSubscription(rpcClient, "topic1", "sub2")
+	go client.AddSubscription(rpcClient, "topic1", "sub2")
 	if err != nil {
 		return
 	}
@@ -44,7 +44,7 @@ func TestRPCServer(t *testing.T) {
 	if err != nil {
 		return
 	}
-	err = client.AddSubscription(rpcClient, "topic2", "sub3")
+	go client.AddSubscription(rpcClient, "topic2", "sub3")
 	if err != nil {
 		return
 	}

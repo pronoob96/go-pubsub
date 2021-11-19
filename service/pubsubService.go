@@ -7,15 +7,20 @@ import (
 	"log"
 	"pub/data"
 	"pub/dtos"
+	"sync"
 )
 
 type RPC int
+
+var mu sync.RWMutex
 
 func (a *RPC) CreateTopic(topicID string, replyTopic *dtos.TopicDto) error {
 	if topicID == "" {
 		log.Println("topicID empty")
 		return nil
 	}
+	mu.Lock()
+	defer mu.Unlock()
 	topic := data.Topic{TopicID: topicID, Subscriptions: make(map[string]*data.Subscription)}
 	data.TopicList[topicID] = topic
 	log.Println("Added topic:", topicID)
@@ -32,6 +37,8 @@ func (a *RPC) DeleteTopic(topicID string, replyTopic *dtos.TopicDto) error {
 		log.Println("topicID empty")
 		return nil
 	}
+	mu.Lock()
+	defer mu.Unlock()
 	for _, topic := range data.TopicList {
 		if topic.TopicID == topicID {
 			delete(data.TopicList, topicID)
@@ -53,6 +60,8 @@ func (a *RPC) AddSubscription(addsubDto dtos.AddSubDto, replyDto *dtos.AddSubDto
 		log.Println("SubscriptionID empty")
 		return nil
 	}
+	mu.Lock()
+	defer mu.Unlock()
 	topic := data.TopicList[addsubDto.TopicID]
 	if topic.TopicID == "" {
 		log.Println("Topic not found")
@@ -73,6 +82,8 @@ func (a *RPC) DeleteSubscription(subscriptionID string, replyDto *dtos.AddSubDto
 		log.Println("SubscriptionID empty")
 		return nil
 	}
+	mu.Lock()
+	defer mu.Unlock()
 	for _, topic := range data.TopicList {
 		for _, sub := range topic.Subscriptions {
 			if sub.SubscriptionID == subscriptionID {
@@ -88,10 +99,6 @@ func (a *RPC) DeleteSubscription(subscriptionID string, replyDto *dtos.AddSubDto
 }
 
 func (a *RPC) Publish(publishdto dtos.PublishDto, replydto *dtos.PublishDto) error {
-	topic := data.TopicList[publishdto.TopicID]
-	if topic.TopicID == "" {
-		return errors.New("TopicID not found")
-	}
 	var message data.Message
 	err := copier.Copy(&message, &publishdto.Message)
 	if err != nil {
@@ -99,8 +106,14 @@ func (a *RPC) Publish(publishdto dtos.PublishDto, replydto *dtos.PublishDto) err
 		return err
 	}
 	message.MessageID = uuid.New()
+	mu.RLock()
+	defer mu.RUnlock()
+	topic := data.TopicList[publishdto.TopicID]
+	if topic.TopicID == "" {
+		return errors.New("TopicID not found")
+	}
 	for _, v := range data.TopicList[publishdto.TopicID].Subscriptions {
-		go v.AddMessageToSubscription(message)
+		v.AddMessageToSubscription(message)
 	}
 	log.Println("Published message", publishdto.Message.MessageData, "to", publishdto.TopicID)
 	err = copier.Copy(replydto, &message)
@@ -112,6 +125,8 @@ func (a *RPC) Publish(publishdto dtos.PublishDto, replydto *dtos.PublishDto) err
 }
 
 func (a *RPC) Ack(ackDto dtos.AckDto, replyAckDto *dtos.AckDto) error {
+	mu.RLock()
+	defer mu.RUnlock()
 	for _, topic := range data.TopicList {
 		for _, sub := range topic.Subscriptions {
 			if sub.SubscriptionID == ackDto.SubscriptionID {
@@ -132,6 +147,8 @@ func (a *RPC) Ack(ackDto dtos.AckDto, replyAckDto *dtos.AckDto) error {
 }
 
 func (a *RPC) GetNonProcessedMessage(subscriptionID string, replyMessage *dtos.MessageDto) error {
+	mu.RLock()
+	defer mu.RUnlock()
 	for _, topic := range data.TopicList {
 		for _, sub := range topic.Subscriptions {
 			if sub.SubscriptionID == subscriptionID {
