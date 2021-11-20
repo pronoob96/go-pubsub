@@ -28,8 +28,8 @@ func AddSubscription(client *rpc.Client, topicID, subscriptionID string) error {
 }
 
 func DeleteSubscription(client *rpc.Client, subscriptionID string) error {
-	var replyTopic *dtos.TopicDto
-	err := client.Call("RPC.AddSubscription", subscriptionID, &replyTopic)
+	var replyTopic *dtos.AddSubDto
+	err := client.Call("RPC.DeleteSubscription", subscriptionID, &replyTopic)
 	if err != nil {
 		log.Println(err)
 		return err

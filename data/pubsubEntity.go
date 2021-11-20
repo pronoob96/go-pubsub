@@ -28,11 +28,12 @@ type Message struct {
 	DeadlineTime time.Time
 }
 
-func (s *Subscription) AddMessageToSubscription(message Message) {
+func (s *Subscription) AddMessageToSubscription(message Message, wg *sync.WaitGroup) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.Messages = append(s.Messages, message)
 	log.Println("Added message", message.MessageData, "to subscriptionID", s.SubscriptionID)
+	wg.Done()
 }
 
 func (s *Subscription) GetNonProcessedMessage() *Message {

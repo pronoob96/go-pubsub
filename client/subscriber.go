@@ -12,7 +12,7 @@ func Subscribe(client *rpc.Client, subscriptionID string, subscriberFunc func(st
 	for {
 		select {
 		case <-ch:
-			log.Println("Exited from subscription", subscriptionID)
+			log.Println("Unsubscribed from subscription", subscriptionID)
 			return
 		default:
 			var replyMessage dtos.MessageDto

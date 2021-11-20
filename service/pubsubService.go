@@ -50,15 +50,17 @@ func (a *RPC) DeleteTopic(topicID string, replyTopic *dtos.TopicDto) error {
 			return nil
 		}
 	}
-	log.Println("Topic not found")
+	log.Println(topicID, "Topic not found")
 	return nil
 }
 
 func (a *RPC) AddSubscription(addsubDto dtos.AddSubDto, replyDto *dtos.AddSubDto) error {
 	if addsubDto.TopicID == "" {
+		log.Println("TopicID empty")
 		return errors.New("TopicID empty")
 	}
 	if addsubDto.SubscriptionID == "" {
+		log.Println("SubscriptionID empty")
 		return errors.New("SubscriptionID empty")
 	}
 	mu.Lock()
@@ -85,16 +87,14 @@ func (a *RPC) DeleteSubscription(subscriptionID string, replyDto *dtos.AddSubDto
 	mu.Lock()
 	defer mu.Unlock()
 	for _, topic := range data.TopicList {
-		for _, sub := range topic.Subscriptions {
-			if sub.SubscriptionID == subscriptionID {
-				delete(topic.Subscriptions, subscriptionID)
-				*replyDto = dtos.AddSubDto{TopicID: topic.TopicID, SubscriptionID: subscriptionID}
-				log.Println("Subscription deleted")
-				return nil
-			}
+		if topic.Subscriptions[subscriptionID] != nil {
+			delete(topic.Subscriptions, subscriptionID)
+			*replyDto = dtos.AddSubDto{TopicID: topic.TopicID, SubscriptionID: subscriptionID}
+			log.Println("Subscription deleted")
+			return nil
 		}
 	}
-	log.Println("Subscription not found")
+	log.Println(subscriptionID, "Subscription not found")
 	return nil
 }
 
@@ -115,9 +115,12 @@ func (a *RPC) Publish(publishdto dtos.PublishDto, replydto *dtos.PublishDto) err
 	if topic == nil {
 		return errors.New("TopicID not found")
 	}
+	var wg sync.WaitGroup
 	for _, v := range data.TopicList[publishdto.TopicID].Subscriptions {
-		v.AddMessageToSubscription(message)
+		wg.Add(1)
+		go v.AddMessageToSubscription(message, &wg)
 	}
+	wg.Wait()
 	log.Println("Published message", publishdto.Message.MessageData, "to", publishdto.TopicID)
 	err = copier.Copy(replydto, &message)
 	if err != nil {
@@ -134,19 +137,17 @@ func (a *RPC) Ack(ackDto dtos.AckDto, replyAckDto *dtos.AckDto) error {
 	mu.RLock()
 	defer mu.RUnlock()
 	for _, topic := range data.TopicList {
-		for _, sub := range topic.Subscriptions {
-			if sub.SubscriptionID == ackDto.SubscriptionID {
-				replyMsg := sub.MarkWorkDone(sub.SubscriptionID, ackDto.MessageID)
-				if replyMsg == nil {
-					return errors.New("time limit to acknowledge exceeded")
-				}
-				err := copier.Copy(replyAckDto, replyMsg)
-				if err != nil {
-					log.Println(err)
-					return err
-				}
-				return nil
+		if topic.Subscriptions[ackDto.SubscriptionID] != nil {
+			replyMsg := topic.Subscriptions[ackDto.SubscriptionID].MarkWorkDone(ackDto.SubscriptionID, ackDto.MessageID)
+			if replyMsg == nil {
+				return errors.New("time limit to acknowledge exceeded")
 			}
+			err := copier.Copy(replyAckDto, replyMsg)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+			return nil
 		}
 	}
 	return nil
@@ -159,19 +160,17 @@ func (a *RPC) GetNonProcessedMessage(subscriptionID string, replyMessage *dtos.M
 	mu.RLock()
 	defer mu.RUnlock()
 	for _, topic := range data.TopicList {
-		for _, sub := range topic.Subscriptions {
-			if sub.SubscriptionID == subscriptionID {
-				nonProcessedMessage := sub.GetNonProcessedMessage()
-				if nonProcessedMessage == nil {
-					return errors.New(fmt.Sprint("No message found to be processed on subscriptionID", subscriptionID))
-				} else {
-					err := copier.Copy(replyMessage, nonProcessedMessage)
-					if err != nil {
-						log.Println(err)
-						return err
-					}
-					return nil
+		if topic.Subscriptions[subscriptionID] != nil {
+			nonProcessedMessage := topic.Subscriptions[subscriptionID].GetNonProcessedMessage()
+			if nonProcessedMessage == nil {
+				return errors.New(fmt.Sprint("No message found to be processed on subscriptionID", subscriptionID))
+			} else {
+				err := copier.Copy(replyMessage, nonProcessedMessage)
+				if err != nil {
+					log.Println(err)
+					return err
 				}
+				return nil
 			}
 		}
 	}
